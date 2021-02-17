@@ -131,7 +131,7 @@ static int closedir(DIR* dirp)
 		return -1;
 	}
 	data = (struct __dir*) dirp;
-	CloseHandle((HANDLE)data->fd);
+	CloseHandle((HANDLE) (intptr_t) data->fd);
 	free(data->entries);
 	free(data);
 	return 0;
@@ -230,14 +230,14 @@ static DIR* __internal_opendir(wchar_t* wname, int size)
 	if (!data)
 		goto out_of_memory;
 	wname[extra_prefix + size - 1] = 0;
-	data->fd = (int)CreateFileW(wname, 0, 0, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+	data->fd = (int) (intptr_t) CreateFileW(wname, 0, 0, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
 	wname[extra_prefix + size - 1] = L'\\';
 	data->count = 16;
 	data->index = 0;
 	data->entries = (struct dirent*) malloc(sizeof(struct dirent) * data->count);
 	if (!data->entries)
 		goto out_of_memory;
-	buffer = malloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+	buffer = (char*) malloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
 	if (!buffer)
 		goto out_of_memory;
 	do
@@ -279,8 +279,8 @@ static DIR* __internal_opendir(wchar_t* wname, int size)
 out_of_memory:
 	if (data)
 	{
-		if (INVALID_HANDLE_VALUE != (HANDLE)data->fd)
-			CloseHandle((HANDLE)data->fd);
+		if (INVALID_HANDLE_VALUE != (HANDLE) (intptr_t) data->fd)
+			CloseHandle((HANDLE) (intptr_t) data->fd);
 		free(data->entries);
 	}
 	free(buffer);
@@ -293,7 +293,7 @@ out_of_memory:
 
 static wchar_t* __get_buffer()
 {
-	wchar_t* name = malloc(sizeof(wchar_t) * (NTFS_MAX_PATH + NAME_MAX + 8));
+	wchar_t* name = (wchar_t*) malloc(sizeof(wchar_t) * (NTFS_MAX_PATH + NAME_MAX + 8));
 	if (name)
 		memcpy(name, L"\\\\?\\", sizeof(wchar_t) * 4);
 	return name;
@@ -352,7 +352,7 @@ static DIR* fdopendir(int fd)
 		errno = ENOMEM;
 		return NULL;
 	}
-	size = GetFinalPathNameByHandleW(fd, wname, NTFS_MAX_PATH, FILE_NAME_NORMALIZED);
+	size = GetFinalPathNameByHandleW((HANDLE) (intptr_t) fd, wname, NTFS_MAX_PATH, FILE_NAME_NORMALIZED);
 	if (0 == size)
 	{
 		free(wname);
@@ -480,7 +480,8 @@ static int scandir(const char* dirp, struct dirent*** namelist,
 			}
 		}
 	}
-	qsort(entries, index, sizeof(struct dirent*), compar);
+	typedef int (__cdecl* _CoreCrtNonSecureSearchSortCompareFunction)(void const*, void const*);
+	qsort(entries, index, sizeof(struct dirent*), (_CoreCrtNonSecureSearchSortCompareFunction) compar);
 	entries[index] = NULL;
 	if (namelist)
 		*namelist = entries;
